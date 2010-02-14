@@ -1180,30 +1180,8 @@ Draws x/y/z lines from the origin for orientation debugging
 ===================
 */
 static void RB_SurfaceAxis( void ) {
-#ifdef PANDORA
-	byte colors[3][4] = {
-		{255, 0, 0, 255},
-		{0, 255, 0, 255},
-		{0, 0, 255, 255}
-	};
-	vec3_t verts[6] = {
-		{0.0f, 0.0f, 0.0f},
-		{16.0f, 0.0f, 0.0f},
-		{0.0f, 0.0f, 0.0f},
-		{0.0f, 16.0f, 0.0f},
-		{0.0f, 0.0f, 0.0f},
-		{0.0f, 0.0f, 16.0f}
-	};
-	glIndex_t indicies[6] = { 0, 1, 0, 2, 0, 3 };
-#endif
 	GL_Bind( tr.whiteImage );
 	qglLineWidth( 3 );
-#ifdef PANDORA
-	qglEnableClientState(GL_COLOR_ARRAY);
-	qglColorPointer(4, GL_UNSIGNED_BYTE, 0, colors);
-	qglVertexPointer(3, GL_FLOAT, 0, verts);
-	qglDrawElements(GL_LINES, 6, GL_INDEX_TYPE, indicies);
-#else
 	qglBegin( GL_LINES );
 	qglColor3f( 1,0,0 );
 	qglVertex3f( 0,0,0 );
@@ -1215,7 +1193,6 @@ static void RB_SurfaceAxis( void ) {
 	qglVertex3f( 0,0,0 );
 	qglVertex3f( 0,0,16 );
 	qglEnd();
-#endif
 	qglLineWidth( 1 );
 }
 

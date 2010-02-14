@@ -666,8 +666,8 @@ static void Upload32( unsigned *data,
 					internalFormat = GL_RGBA;
 				}
 			}
-#endif
 		}
+#endif
 	}
 
 	// copy or resample data as appropriate for first MIP level

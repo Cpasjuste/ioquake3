@@ -841,11 +841,8 @@ void RB_StageIteratorSky( void ) {
 
 	// draw the outer skybox
 	if ( tess.shader->sky.outerbox[0] && tess.shader->sky.outerbox[0] != tr.defaultImage ) {
-#ifdef PANDORA
-		glColor4f( tr.identityLight, tr.identityLight, tr.identityLight, 1.0f );
-#else
 		qglColor3f( tr.identityLight, tr.identityLight, tr.identityLight );
-#endif		
+		
 		qglPushMatrix ();
 		GL_State( 0 );
 		qglTranslatef (backEnd.viewParms.or.origin[0], backEnd.viewParms.or.origin[1], backEnd.viewParms.or.origin[2]);

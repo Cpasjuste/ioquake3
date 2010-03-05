@@ -11,7 +11,7 @@
 #include <GLES/egl.h>
 #include <GLES/gl.h>
 
-#include <SDL/SDL.h>
+//#include <SDL/SDL.h>
 
 #include "egl_glimp.h"
 #include "../client/client.h"
@@ -22,6 +22,9 @@ Window win = 0;
 EGLContext eglContext = NULL;
 EGLDisplay eglDisplay = NULL;
 EGLSurface eglSurface = NULL;
+
+int pandora_driver_mode_x11 = 0;
+cvar_t* cvarPndMode;
 
 int Sys_XTimeToSysTime(Time xtime)
 {
@@ -102,7 +105,7 @@ static void make_window(Display * dpy, Screen * scr, EGLDisplay eglDisplay,
 	EGLint config_count;
 	XWindowAttributes WinAttr;
 	int XResult = BadImplementation;
-	int blackColour = BlackPixel(dpy, DefaultScreen(dpy));
+	int blackColour;
 	EGLint cfg_attribs[] = {
 		//EGL_NATIVE_VISUAL_TYPE, 0,
 
@@ -121,21 +124,25 @@ static void make_window(Display * dpy, Screen * scr, EGLDisplay eglDisplay,
 	};
 	EGLint i;
 
-	win =
-	    XCreateSimpleWindow(dpy, DefaultRootWindow(dpy), 0, 0, 1, 1, 0,
-				blackColour, blackColour);
-	XStoreName(dpy, win, WINDOW_CLASS_NAME);
+	if (pandora_driver_mode_x11)
+	{
+		blackColour = BlackPixel(dpy, DefaultScreen(dpy));
+		win =
+		    XCreateSimpleWindow(dpy, DefaultRootWindow(dpy), 0, 0, 1, 1, 0,
+					blackColour, blackColour);
+		XStoreName(dpy, win, WINDOW_CLASS_NAME);
 
-	XSelectInput(dpy, win, X_MASK);
+		XSelectInput(dpy, win, X_MASK);
 
-	if (!(XResult = XGetWindowAttributes(dpy, win, &WinAttr)))
-		GLimp_HandleError();
+		if (!(XResult = XGetWindowAttributes(dpy, win, &WinAttr)))
+			GLimp_HandleError();
 
-	GLimp_DisableComposition();
-	XMapWindow(dpy, win);
-	GLimp_DisableComposition();
+		GLimp_DisableComposition();
+		XMapWindow(dpy, win);
+		GLimp_DisableComposition();
 
-	XFlush(dpy);
+		XFlush(dpy);
+	}
 
 	if (!eglGetConfigs(eglDisplay, configs, MAX_NUM_CONFIGS, &config_count))
 		GLimp_HandleError();
@@ -144,12 +151,24 @@ static void make_window(Display * dpy, Screen * scr, EGLDisplay eglDisplay,
 	    (eglDisplay, cfg_attribs, configs, MAX_NUM_CONFIGS, &config_count))
 		GLimp_HandleError();
 
-	for (i = 0; i < config_count; i++) {
-		if ((eglSurface =
-		     eglCreateWindowSurface(eglDisplay, configs[i],
-					    (NativeWindowType) win,
-					    NULL)) != EGL_NO_SURFACE)
-			break;
+	for (i = 0; i < config_count; i++)
+	{
+		if (pandora_driver_mode_x11)
+		{
+			if ((eglSurface =
+			    eglCreateWindowSurface(eglDisplay, configs[i],
+						    (NativeDisplayType) win,
+						    NULL)) != EGL_NO_SURFACE)
+				break;
+		}
+		else
+		{
+			if ((eglSurface =
+			    eglCreateWindowSurface( eglDisplay, configs[i],
+						    (NativeDisplayType)NULL,
+						    NULL)) != EGL_NO_SURFACE)
+				break;
+		}
 	}
 	if (eglSurface == EGL_NO_SURFACE)
 		GLimp_HandleError();
@@ -177,7 +196,7 @@ static qboolean GLimp_HaveExtension(const char *ext)
 
 static void qglMultiTexCoord2f(GLenum target, GLfloat s, GLfloat t)
 {
-qglMultiTexCoord4f(target,s,t,1,1);
+	qglMultiTexCoord4f(target,s,t,1,1);
 }
 
 
@@ -360,33 +379,53 @@ static void GLimp_InitExtensions( void )
 
 void GLimp_Init(void)
 {
-	Screen *screen;
+	Screen *screen = NULL;
 	Visual *vis;
 	EGLint major, minor;
 
 	ri.Printf(PRINT_ALL, "Initializing OpenGL subsystem\n");
 
+	cvarPndMode = ri.Cvar_Get("x11", "0", 0);
+	pandora_driver_mode_x11 = cvarPndMode->value;
+	
 	bzero(&glConfig, sizeof(glConfig));
 
-	if (!(dpy = XOpenDisplay(NULL))) {
-		printf("Error: couldn't open display \n");
-		assert(0);
+	if (pandora_driver_mode_x11)
+	{
+		if (!(dpy = XOpenDisplay(NULL))) {
+			printf("Error: couldn't open display \n");
+			assert(0);
+		}
+		screen = XDefaultScreenOfDisplay(dpy);
+		vis = DefaultVisual(dpy, DefaultScreen(dpy));
+
+		eglDisplay = eglGetDisplay((NativeDisplayType) dpy);
 	}
-	screen = XDefaultScreenOfDisplay(dpy);
-	vis = DefaultVisual(dpy, DefaultScreen(dpy));
-
-	eglDisplay = eglGetDisplay((NativeDisplayType) dpy);
-	if (!eglInitialize(eglDisplay, &major, &minor))
-		GLimp_HandleError();
-
+	else
+	{
+		dpy = NULL;
+		eglDisplay = eglGetDisplay((NativeDisplayType)NULL );
+	}
+	
+		if (!eglInitialize(eglDisplay, &major, &minor))
+			GLimp_HandleError();	
+	
 	make_window(dpy, screen, eglDisplay, &eglSurface, &eglContext);
 
-	XMoveResizeWindow(dpy, win, 0, 0, WidthOfScreen(screen),
-			  HeightOfScreen(screen));
-
-	glConfig.isFullscreen = r_fullscreen->integer;
-	glConfig.vidWidth = WidthOfScreen(screen);
-	glConfig.vidHeight = HeightOfScreen(screen);
+	if (pandora_driver_mode_x11)
+	{
+		XMoveResizeWindow(dpy, win, 0, 0, WidthOfScreen(screen),
+				HeightOfScreen(screen));
+		glConfig.vidWidth = WidthOfScreen(screen);
+		glConfig.vidHeight = HeightOfScreen(screen);
+	}
+	else
+	{
+		glConfig.vidWidth  = 800;
+		glConfig.vidHeight = 480;
+	}
+	
+	glConfig.isFullscreen = r_fullscreen->integer;	
 	glConfig.windowAspect = (float)glConfig.vidWidth / glConfig.vidHeight;
 	// FIXME
 	//glConfig.colorBits = 0
@@ -416,6 +455,7 @@ void GLimp_Init(void)
 
 	GLimp_InitExtensions();
 
+#if 0
 	if ( !SDL_WasInit(SDL_INIT_VIDEO) )
 	{
 		char driverName[ 64 ];
@@ -430,7 +470,7 @@ void GLimp_Init(void)
 		ri.Printf( PRINT_ALL, "SDL using driver \"%s\"\n", driverName );
 		Cvar_Set( "r_sdlDriver", driverName );
 	}
-
+#endif
 	IN_Init( );
 
 	ri.Printf(PRINT_ALL, "------------------\n");
@@ -447,7 +487,8 @@ void GLimp_EndFrame(void)
 		eglSwapBuffers(eglDisplay, eglSurface);
 	}
 
-	XForceScreenSaver(dpy, ScreenSaverReset);
+	if (pandora_driver_mode_x11)
+		XForceScreenSaver(dpy, ScreenSaverReset);
 
 }
 
@@ -460,8 +501,11 @@ void GLimp_Shutdown(void)
 	eglMakeCurrent(eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	eglTerminate(eglDisplay);
 
-	XDestroyWindow(dpy, win);
-	XCloseDisplay(dpy);
+	if (pandora_driver_mode_x11)
+	{
+		XDestroyWindow(dpy, win);
+		XCloseDisplay(dpy);
+	}
 }
 
 #if 1

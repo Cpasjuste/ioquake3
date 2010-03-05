@@ -314,12 +314,13 @@ ifeq ($(PLATFORM),linux)
   endif
   ifeq ($(ARCH),arm)
     BASE_CFLAGS += -DPANDORA -I$(PNDSDK)/usr/include
-    OPTIMIZE += -mfpu=neon
-	# -O3 -march=armv7-a -mcpu=cortex-a8 -mtune=cortex-a8 -mfloat-abi=softfp \
-	# -mfpu=neon -ftree-vectorize -ffast-math -fomit-frame-pointer -fno-strict-aliasing -fsingle-precision-constant
+    OPTIMIZE += -O3 -march=armv7-a -mcpu=cortex-a8 -mtune=cortex-a8 -mfloat-abi=softfp \
+			-mfpu=neon -ftree-vectorize -ffast-math -fomit-frame-pointer -fno-strict-aliasing -fsingle-precision-constant
     SDL_CFLAGS=`$(PNDSDK)/usr/bin/sdl-config --cflags`
     SDL_LIBS=`$(PNDSDK)/usr/bin/sdl-config --libs`
     BASE_CFLAGS += -I$(PNDSDK)/usr/include/EGL/ -I$(PNDSDK)/usr/include/GLES/
+    OPTIMIZEVM = -O3 -march=armv7-a -mcpu=cortex-a8 -mtune=cortex-a8 -mfloat-abi=softfp \
+			-mfpu=neon -ftree-vectorize -ffast-math -fomit-frame-pointer -fno-strict-aliasing -fsingle-precision-constant
   endif
   endif
   endif
@@ -1463,13 +1464,13 @@ Q3OBJ = \
   $(B)/client/tr_surface.o \
   $(B)/client/tr_world.o \
   \
-  $(B)/client/sdl_input.o \
   $(B)/client/sdl_snd.o \
   \
   $(B)/client/con_passive.o \
   $(B)/client/con_log.o \
   $(B)/client/sys_main.o
 #  $(B)/client/sdl_gamma.o \
+# $(B)/client/sdl_input.o \
 
 ifeq ($(ARCH),i386)
   Q3OBJ += \
@@ -1586,7 +1587,9 @@ ifeq ($(USE_MUMBLE),1)
 endif
 
 Q3POBJ += \
-   $(B)/client/egl_glimp.o
+   $(B)/client/egl_glimp.o \
+   $(B)/client/egl_input.o \
+   $(B)/client/pnd_event.o
 #  $(B)/client/sdl_glimp.o
 
 Q3POBJ_SMP += \
@@ -2272,9 +2275,11 @@ endif
 
 clean-debug:
 	@$(MAKE) clean2 B=$(BD)
+	find . -name "*~*" -exec rm {} \; -print
 
 clean-release:
 	@$(MAKE) clean2 B=$(BR)
+	find . -name "*~*" -exec rm {} \; -print
 
 clean2:
 	@echo "CLEAN $(B)"

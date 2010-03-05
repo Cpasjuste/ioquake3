@@ -17,7 +17,7 @@
 #include <GLES/egl.h>
 #include <GLES/gl.h>
 
-//#include "egl_input.h"
+#include "egl_input.h"
 
 #ifndef GLAPI
 #define GLAPI extern
